@@ -1,9 +1,9 @@
 # PiPet-CyberDeck
 A two-device AI cyberdeck ecosystem — A Portable AI Tamagotchi-inspired pet + pet house home base. 
 
-Device 1 — The Tamagotchi A Raspberry Pi Zero 2W + Whisplay HAT within an egg shell like a Tamagotchi. Runs a virtual pet game and streaming client to encode and decode audio and send/receive over wifi. Has a A/B/C multi-mode buttons, volume controls, speaker, LED status bar, and a PiSugar battery. 
+Device 1 — A Raspberry Pi Zero 2W + Whisplay HAT (built-in display, mic, and speaker) within an egg shell like a Tamagotchi. Runs a virtual pet game on the Whisplay display and acts as a streaming client to encode and decode audio over WiFi to the Pet House AI. Has A/B/C multi-mode buttons, volume controls, LED status bar, and a PiSugar 3 battery. The Tamagotchi snaps into a dock cradle built into the front of the house via magnetic pogo pins. When docked it charges and gets updates on new pet states or games I create later on. 
 
-Device 2 — The Pet House A pet house-shaped cyberdeck running Raspberry Pi 5 8GB with a Freenove 4.3" DSI touchscreen and Rii mini keyboard. The Tamagotchi snaps into a dock cradle built into the front of the house via magnetic pogo pins. When docked it charges and gets updates on new ppet states or games I create later on. 
+Device 2 — The Pet House A pet house-shaped cyberdeck running Raspberry Pi 5 8GB with a Freenove 4.3" DSI touchscreen and Rii mini keyboard.
 
 ## Pet House
 
