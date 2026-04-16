@@ -1,0 +1,8 @@
+{
+    "text_model": "gemma3:1b",
+    "vision_model": "moondream",
+    "voice_model": "/home/tina386/piper/en_US-amy-medium.onnx",
+    "piper_path": "/home/tina386/.local/bin/piper",
+    "mic_device": 1,
+    "system_prompt": "You are a cute kawaii AI pet companion. Keep responses short, warm and playful."
+}
