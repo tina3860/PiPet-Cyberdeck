@@ -19,3 +19,82 @@ Device 2 — The Pet House A pet house-shaped cyberdeck running Raspberry Pi 5 8
 ## Pi-Pet
 
 ### ✨ Features
+
+
+
+# Pet States
+
+## Tamgotchi (more, cuter, game-focused):
+
+Idle / blinking
+Happy / dancing
+Hungry / sad empty bowl
+Sleeping / ZZZs floating
+Playing / mini game sprites
+Eating / chomping
+Sick / dizzy stars
+Excited / docking animation when snapping into house
+Pooping 💩 (classic Tamagotchi!)
+
+## House animations (fewer, simpler, AI state-focused):
+
+Idle / gentle loop
+Listening / perked ears or sound waves
+Thinking / thinking bubble or spinning
+Speaking / mouth moving
+Error / confused face
+
+
+
+
+To answer your questions:
+
+🎮 Buttons The Whisplay HAT has 3 buttons (A, B, C). How do you want them to work?
+
+Option 1: A = navigate left, B = select/confirm, C = navigate right
+
+Option 2: A = navigate menu, B = confirm, C = cancel/back
+
+Or something else?
+
+📋 Menu/Toolbar Picotamachibi had icons across the top. Do you want:
+
+Same style toolbar with icons?
+
+Or a different navigation style since your screen is bigger?
+
+What actions do you want available?
+
+Feed
+
+Play
+
+Sleep
+
+Medicine
+
+Clean/Toilet
+
+Stats view
+
+Pause
+
+Anything else?
+
+🎮 Mini Games Do you want any mini games for the play action? Simple ones like:
+
+Guess the number
+
+Button timing game
+
+Rock paper scissors
+
+🏠 Docking When egg docks to Pet House, what should happen beyond charging and syncing? Any special interactions?
+
+📊 Stats Display How do you want to show Pip's stats?
+
+Little bar graphs?
+
+Numbers?
+
+Just the animation reflects her mood?
