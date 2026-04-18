@@ -46,60 +46,23 @@ Error / confused face
 
 
 
+# Resources
+## What I bought - Amazon Storefront
 
-To answer your questions:
+## 3d Model file sources
 
-🎮 Buttons The Whisplay HAT has 3 buttons (A, B, C). How do you want them to work?
+## Youtube Videos
+- https://www.youtube.com/watch?v=Nwu2DruSuyI
+- 
 
-Option 1: A = navigate left, B = select/confirm, C = navigate right
+## Documentations
+- Pi Sugar 3: I was really confused on how to turn on and off my pet. This was very helpful: https://docs.pisugar.com/docs/product-wiki/battery/pisugar3/pisugar-3-series#software-installation
+- 
 
-Option 2: A = navigate menu, B = confirm, C = cancel/back
+## Additional Resources
+- https://www.reddit.com/r/cyberDeck/
+- 
 
-Or something else?
-
-📋 Menu/Toolbar Picotamachibi had icons across the top. Do you want:
-
-Same style toolbar with icons?
-
-Or a different navigation style since your screen is bigger?
-
-What actions do you want available?
-
-Feed
-
-Play
-
-Sleep
-
-Medicine
-
-Clean/Toilet
-
-Stats view
-
-Pause
-
-Anything else?
-
-🎮 Mini Games Do you want any mini games for the play action? Simple ones like:
-
-Guess the number
-
-Button timing game
-
-Rock paper scissors
-
-🏠 Docking When egg docks to Pet House, what should happen beyond charging and syncing? Any special interactions?
-
-📊 Stats Display How do you want to show Pip's stats?
-
-Little bar graphs?
-
-Numbers?
-
-Just the animation reflects her mood?
+# Final Thoughts
 
 
-# Amazon StoreFront
-
-# 3d Model file sources
