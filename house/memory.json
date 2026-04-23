@@ -1,0 +1,11 @@
+{
+    "name": "Meow Me",
+    "location": "Walnut Creek, CA",
+    "preferences": {
+        "response_style": "short and simple",
+        "simplify_complex": true,
+        "cite_sources": true,
+        "read_links_aloud": false
+    },
+    "notes": []
+}
