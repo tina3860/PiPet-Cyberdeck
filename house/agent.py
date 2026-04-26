@@ -433,7 +433,7 @@ def display_thread():
 def wake_word_thread():
     print("Loading wake word model...")
     MODEL_PATH = "/home/tina386/PiPet-Cyberdeck-Ecosystem/house/models/Hey_Pip.onnx"
-    owwModel = Model(wakeword_models=[MODEL_PATH])
+    owwModel = Model()
 
     # Audio settings
     MIC_RATE = 44100  # Mic's native rate
@@ -647,8 +647,8 @@ if __name__ == "__main__":
     display = threading.Thread(target=display_thread, daemon=True)
     display.start()
 
-    wake_word = threading.Thread(target=wake_word_thread, daemon=True)
-    wake_word.start()
+    #wake_word = threading.Thread(target=wake_word_thread, daemon=True)
+    #wake_word.start()
 
     print("Waiting for display...")
     while not state.get("display_ready", False):
@@ -658,35 +658,37 @@ if __name__ == "__main__":
     print("  - Press Enter to speak")
     print("  - Type a message and press Enter to chat by text")
     print("  - Click the chat box in the GUI to type there")
-    print("  - Say 'Hey Pip' for wake word activation")
+    #print("  - Say 'Hey Pip' for wake word activation")
     print("  - Type 'quit' to exit")
 
     try:
         while state["running"]:
             state["animation"] = "idle"
 
-            # Check for wake word trigger
-            if state["wake_word_detected"]:
-                state["wake_word_detected"] = False
-                print("\n🎤 Wake word detected! Listening...")
+                # # Check for wake word trigger
+    # if state["wake_word_detected"]:
+    #     state["wake_word_detected"] = False
+    #     print("\n🎤 Wake word detected! Listening...")
+    #
+    #     audio_file = record_audio()
+    #     text = transcribe(audio_file)
+    #     print(f"Transcribed: '{text}'")
+    #     if text:
+    #         print(f"You said: {text}")
+    #         reply, display_reply = chat(text)
+    #         print(f"Pip: {reply}")
+    #         speak(reply, display_reply)
+    #     else:
+    #         state["animation"]     = "error"
+    #         state["chat_text"]     = "I couldn't hear anything, try again!"
+    #         state["display_chars"] = 38
+    #         time.sleep(2)
+    #         state["animation"]     = "idle"
+    #         state["chat_text"]     = ""
+    #         state["display_chars"] = 0
+    #     continue  # Skip to next iteration
 
-                audio_file = record_audio()
-                text = transcribe(audio_file)
-                print(f"Transcribed: '{text}'")
-                if text:
-                    print(f"You said: {text}")
-                    reply, display_reply = chat(text)
-                    print(f"Pip: {reply}")
-                    speak(reply, display_reply)
-                else:
-                    state["animation"]     = "error"
-                    state["chat_text"]     = "I couldn't hear anything, try again!"
-                    state["display_chars"] = 38
-                    time.sleep(2)
-                    state["animation"]     = "idle"
-                    state["chat_text"]     = ""
-                    state["display_chars"] = 0
-                continue  # Skip to next iteration
+    # Poll for GUI input (non-blocking)
 
             # Poll for GUI input (non-blocking)
             if state["user_input"]:
