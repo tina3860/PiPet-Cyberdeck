@@ -70,6 +70,18 @@ widget_expanded = pygame.image.load(
 widget_collapsed = pygame.transform.scale(widget_collapsed, (240, 160))
 widget_expanded  = pygame.transform.scale(widget_expanded,  (240, 160))
 
+
+# -------------------------
+# LOAD CLOSE BUTTON
+# -------------------------
+close_btn_img = pygame.image.load(
+    os.path.join(ANIM_DIR, "Exit Icon.png")
+).convert_alpha()
+close_btn_img = pygame.transform.scale(close_btn_img, (50, 50))
+close_btn_rect = close_btn_img.get_rect()
+close_btn_rect.topright = (WIDTH - 15, 15)  # Top-right corner
+close_btn_hovered = False
+
 # -------------------------
 # BAR POSITIONS (2x scaled)
 # -------------------------
@@ -204,9 +216,17 @@ while running:
                 current_state = "error"
                 frame_index = 0
 
-        # Mouse click
+         # Mouse click
         if event.type == pygame.MOUSEBUTTONDOWN:
-            widget_open = handle_tap(event.pos, widget_open)
+            # Check if close button was clicked
+            if close_btn_rect.collidepoint(event.pos):
+                running = False
+            else:
+                widget_open = handle_tap(event.pos, widget_open)
+
+        # Check for hover
+        if event.type == pygame.MOUSEMOTION:
+            close_btn_hovered = close_btn_rect.collidepoint(event.pos)
 
         # Finger touch (Pi touchscreen)
         if event.type == pygame.FINGERDOWN:
@@ -222,6 +242,13 @@ while running:
     # Draw stat widget on top
     draw_stat_widget(screen, stats, widget_open)
 
+     # Draw close button (add this)
+    if close_btn_hovered:
+        scaled = pygame.transform.scale(close_btn_img, (55, 55))
+        rect = scaled.get_rect(center=close_btn_rect.center)
+        screen.blit(scaled, rect)
+    else:
+        screen.blit(close_btn_img, close_btn_rect)
 
     pygame.display.flip()
     frame_index = (frame_index + 1) % len(frames)

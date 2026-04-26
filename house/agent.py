@@ -11,6 +11,10 @@ import pygame
 from PIL import Image
 from datetime import datetime
 from ddgs import DDGS
+import pyaudio
+import numpy as np
+from openwakeword.model import Model
+from scipy import signal
 
 # -------------------------
 # DISPLAY ENVIRONMENT
@@ -27,6 +31,8 @@ state = {
     "chat_text":        "",
     "display_chars":    0,
     "typewriter_speed": 3,
+    "user_input":       None,
+    "wake_word_detected": False,
     "stats": {
         "hunger":      80,
         "happiness":   70,
@@ -166,6 +172,12 @@ def display_thread():
     screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.FULLSCREEN)
     clock  = pygame.time.Clock()
 
+    # Text input state
+    text_input_active = False
+    text_input_buffer = ""
+    cursor_visible = True
+    cursor_timer = 0
+
     print("Loading animations...")
     animations = {
         "idle":      load_gif("Cat_idle_house.gif"),
@@ -189,6 +201,15 @@ def display_thread():
         os.path.join(ANIM_DIR, "Chat-box.png")
     ).convert_alpha()
     chat_box = pygame.transform.scale(chat_box, (800, 100))
+
+    # Load close button
+    close_btn_img = pygame.image.load(
+        os.path.join(ANIM_DIR, "close_button.png")
+    ).convert_alpha()
+    close_btn_img = pygame.transform.scale(close_btn_img, (50, 50))
+    close_btn_rect = close_btn_img.get_rect()
+    close_btn_rect.topright = (WIDTH - 15, 15)
+    close_btn_hovered = False
 
     font_large = pygame.font.SysFont("monospace", 20, bold=True)
     font_small = pygame.font.SysFont("monospace", 13, bold=True)
@@ -273,9 +294,19 @@ def display_thread():
             lines.append(current_line.strip())
         return lines
 
-    def draw_chat_box(screen, chat_text, display_chars):
+    def draw_chat_box(screen, chat_text, display_chars, input_active, input_buffer, show_cursor):
         nonlocal scroll_offset, last_text
         screen.blit(chat_box, (0, CHAT_BOX_Y))
+
+        # If typing, show input buffer
+        if input_active:
+            cursor = "|" if show_cursor else " "
+            display_text = "You: " + input_buffer + cursor
+            text_surf = chat_font.render(display_text, True, (80, 50, 50))
+            screen.blit(text_surf, (CHAT_TEXT_X, CHAT_TEXT_Y))
+            return
+
+        # Otherwise show chat response
         if not chat_text:
             scroll_offset = 0
             last_text = ""
@@ -309,15 +340,53 @@ def display_thread():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 state["running"] = False
+
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
+                if event.key == pygame.K_ESCAPE and not text_input_active:
                     state["running"] = False
+                elif text_input_active:
+                    # Handle typing
+                    if event.key == pygame.K_RETURN:
+                        # Submit the message
+                        if text_input_buffer.strip():
+                            state["user_input"] = text_input_buffer
+                            text_input_buffer = ""
+                            text_input_active = False
+                    elif event.key == pygame.K_BACKSPACE:
+                        text_input_buffer = text_input_buffer[:-1]
+                    elif event.key == pygame.K_ESCAPE:
+                        text_input_active = False
+                        text_input_buffer = ""
+                    elif len(text_input_buffer) < 100:  # Limit length
+                        text_input_buffer += event.unicode
+
             if event.type == pygame.MOUSEBUTTONDOWN:
-                widget_open = handle_tap(event.pos, widget_open)
+                # Check close button first
+                if close_btn_rect.collidepoint(event.pos):
+                    state["running"] = False
+                # Check if chat box was clicked
+                elif event.pos[1] >= CHAT_BOX_Y:
+                    text_input_active = True
+                    text_input_buffer = ""
+                else:
+                    widget_open = handle_tap(event.pos, widget_open)
+
+            # Handle mouse hover for close button
+            if event.type == pygame.MOUSEMOTION:
+                close_btn_hovered = close_btn_rect.collidepoint(event.pos)
+
             if event.type == pygame.FINGERDOWN:
                 tap_x = int(event.x * WIDTH)
                 tap_y = int(event.y * HEIGHT)
-                widget_open = handle_tap((tap_x, tap_y), widget_open)
+                # Check close button
+                if close_btn_rect.collidepoint((tap_x, tap_y)):
+                    state["running"] = False
+                # Check chat box
+                elif tap_y >= CHAT_BOX_Y:
+                    text_input_active = True
+                    text_input_buffer = ""
+                else:
+                    widget_open = handle_tap((tap_x, tap_y), widget_open)
 
         current_anim = state["animation"]
         if current_anim != prev_anim:
@@ -328,7 +397,23 @@ def display_thread():
         surface = pil_to_pygame(frames[frame_index])
         screen.blit(surface, (0, 0))
         draw_stat_widget(screen, state["stats"], widget_open)
-        draw_chat_box(screen, state["chat_text"], state["display_chars"])
+
+        # Blink cursor
+        cursor_timer += 1
+        if cursor_timer >= FPS // 2:  # Blink every 0.5 seconds
+            cursor_timer = 0
+            cursor_visible = not cursor_visible
+
+        draw_chat_box(screen, state["chat_text"], state["display_chars"],
+                      text_input_active, text_input_buffer, cursor_visible)
+
+        # Draw close button
+        if close_btn_hovered:
+            scaled = pygame.transform.scale(close_btn_img, (55, 55))
+            rect = scaled.get_rect(center=close_btn_rect.center)
+            screen.blit(scaled, rect)
+        else:
+            screen.blit(close_btn_img, close_btn_rect)
 
         typewriter_counter += 1
         if typewriter_counter >= 1:
@@ -341,6 +426,65 @@ def display_thread():
         clock.tick(FPS)
 
     pygame.quit()
+
+# -------------------------
+# WAKE WORD THREAD
+# -------------------------
+def wake_word_thread():
+    print("Loading wake word model...")
+    MODEL_PATH = "/home/tina386/PiPet-Cyberdeck-Ecosystem/house/models/Hey_Pip.onnx"
+    owwModel = Model(wakeword_models=[MODEL_PATH])
+
+    # Audio settings
+    MIC_RATE = 44100  # Mic's native rate
+    TARGET_RATE = 16000  # OpenWakeWord requirement
+    CHUNK_44K = int(1280 * MIC_RATE / TARGET_RATE)  # ~3520 samples
+
+    p = pyaudio.PyAudio()
+
+    # Use default input device
+    mic_stream = p.open(
+        format=pyaudio.paInt16,
+        channels=1,
+        rate=MIC_RATE,
+        input=True,
+        frames_per_buffer=CHUNK_44K
+    )
+
+    print("Wake word listening started! Say 'Hey Pip'...")
+
+    while state["running"]:
+        try:
+            # Read audio at 44100Hz
+            audio_44k = np.frombuffer(
+                mic_stream.read(CHUNK_44K, exception_on_overflow=False),
+                dtype=np.int16
+            )
+
+            # Resample to 16000Hz
+            audio_16k = signal.resample(audio_44k, 1280).astype(np.int16)
+
+            # Get prediction
+            prediction = owwModel.predict(audio_16k)
+
+            # Check if wake word detected
+            for mdl in owwModel.prediction_buffer.keys():
+                scores = list(owwModel.prediction_buffer[mdl])
+                if scores and scores[-1] >= 0.5:
+                    print(f"🎯 Wake word detected! (score: {scores[-1]:.2f})")
+                    state["wake_word_detected"] = True
+                    time.sleep(1)  # Brief pause to avoid re-triggering
+                    break
+
+        except Exception as e:
+            if state["running"]:
+                print(f"Wake word error: {e}")
+            time.sleep(0.1)
+
+    mic_stream.stop_stream()
+    mic_stream.close()
+    p.terminate()
+    print("Wake word thread stopped")
 
 # -------------------------
 # AGENT FUNCTIONS
@@ -503,6 +647,9 @@ if __name__ == "__main__":
     display = threading.Thread(target=display_thread, daemon=True)
     display.start()
 
+    wake_word = threading.Thread(target=wake_word_thread, daemon=True)
+    wake_word.start()
+
     print("Waiting for display...")
     while not state.get("display_ready", False):
         time.sleep(0.1)
@@ -510,17 +657,19 @@ if __name__ == "__main__":
     print("Pet House AI is ready!")
     print("  - Press Enter to speak")
     print("  - Type a message and press Enter to chat by text")
+    print("  - Click the chat box in the GUI to type there")
+    print("  - Say 'Hey Pip' for wake word activation")
     print("  - Type 'quit' to exit")
 
     try:
         while state["running"]:
             state["animation"] = "idle"
-            user_input = input("\nYou: ")
 
-            if user_input.lower() == "quit":
-                state["running"] = False
-                break
-            elif user_input == "":
+            # Check for wake word trigger
+            if state["wake_word_detected"]:
+                state["wake_word_detected"] = False
+                print("\n🎤 Wake word detected! Listening...")
+
                 audio_file = record_audio()
                 text = transcribe(audio_file)
                 print(f"Transcribed: '{text}'")
@@ -537,11 +686,56 @@ if __name__ == "__main__":
                     state["animation"]     = "idle"
                     state["chat_text"]     = ""
                     state["display_chars"] = 0
-                    print("Couldn't hear anything, try again!")
-            else:
+                continue  # Skip to next iteration
+
+            # Poll for GUI input (non-blocking)
+            if state["user_input"]:
+                user_input = state["user_input"]
+                state["user_input"] = None
+                print(f"\nYou (GUI): {user_input}")
+
+                # Process the GUI input
                 reply, display_reply = chat(user_input)
                 print(f"Pip: {reply}")
                 speak(reply, display_reply)
+
+            else:
+                # Check terminal input (non-blocking)
+                import select
+                import sys
+
+                # Check if there's terminal input waiting
+                if select.select([sys.stdin], [], [], 0.1)[0]:
+                    user_input = input("\nYou: ")
+
+                    if user_input.lower() == "quit":
+                        state["running"] = False
+                        break
+                    elif user_input == "":
+                        audio_file = record_audio()
+                        text = transcribe(audio_file)
+                        print(f"Transcribed: '{text}'")
+                        if text:
+                            print(f"You said: {text}")
+                            reply, display_reply = chat(text)
+                            print(f"Pip: {reply}")
+                            speak(reply, display_reply)
+                        else:
+                            state["animation"]     = "error"
+                            state["chat_text"]     = "I couldn't hear anything, try again!"
+                            state["display_chars"] = 38
+                            time.sleep(2)
+                            state["animation"]     = "idle"
+                            state["chat_text"]     = ""
+                            state["display_chars"] = 0
+                            print("Couldn't hear anything, try again!")
+                    else:
+                        reply, display_reply = chat(user_input)
+                        print(f"Pip: {reply}")
+                        speak(reply, display_reply)
+                else:
+                    # No input yet, sleep briefly
+                    time.sleep(0.1)
 
     except KeyboardInterrupt:
         state["running"] = False
