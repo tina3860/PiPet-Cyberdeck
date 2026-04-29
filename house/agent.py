@@ -33,6 +33,8 @@ state = {
     "typewriter_speed": 3,
     "user_input":       None,
     "wake_word_detected": False,
+    "text_input_deactivate": False,
+    "voice_input_triggered": False,
     "stats": {
         "hunger":      80,
         "happiness":   70,
@@ -70,34 +72,76 @@ memory = load_memory()
 # -------------------------
 def should_search(query):
     """Decide if query needs a web search"""
+    query_lower = query.lower()
+
+    # Don't search for simple math
+    math_keywords = ["times", "plus", "minus", "divided", "multiply", "add", "subtract", "equals", "calculate"]
+    math_symbols = ["*", "+", "-", "/", "×", "÷", "="]
+    if any(word in query_lower for word in math_keywords) or any(symbol in query_lower for symbol in math_symbols):
+        return False
+
+    # Don't search for generic "what is" questions (definitions AI can answer)
+    if query_lower.startswith("what is") or query_lower.startswith("what's"):
+        # Only search if asking about current/recent things
+        if not any(word in query_lower for word in ["current", "latest", "today", "now", "recent"]):
+            return False
+
     search_triggers = [
         "weather", "temperature", "forecast",
-        "time", "date", "today", "tonight",
-        "news", "latest", "current", "right now",
-        "stock", "price",
-        "recipe", "how to make", "ingredients",
-        "who is", "what is", "when did", "where is",
-        "roth ira", "401k", "finance", "invest",
-        "define", "meaning of",
+        "current time", "what time is it", "date today", "today's date", "what's today",
+        "news", "latest", "current events", "right now",
+        "stock", "stock price",
+        "recipe", "how to make", "how to cook",
+        "who is currently", "where is located",
+        "roth ira", "401k",
     ]
-    query_lower = query.lower()
     return any(trigger in query_lower for trigger in search_triggers)
 
 def web_search(query):
     """Search DuckDuckGo and return summarized results"""
     try:
         print(f"🔍 Searching: {query}")
+
+        # Get more results to filter from
         results = DDGS().text(
             query + f" {memory.get('location', 'Walnut Creek CA')}",
-            max_results=3
+            max_results=10
         )
         if not results:
             return None
 
-        # Build context from results
+        # Filter out low-quality sources
+        blocked_domains = ['tiktok.com', 'pinterest.com', 'instagram.com', 'facebook.com',
+                          'twitter.com', 'x.com', 'reddit.com', 'quora.com']
+
+        # Prioritize high-quality sources
+        trusted_domains = ['.gov', '.edu', 'wikipedia.org', 'weather.gov', 'weather.com',
+                          'nytimes.com', 'reuters.com', 'apnews.com', 'bbc.com', 'cnn.com']
+
+        # Filter and sort results
+        filtered_results = []
+        for r in results:
+            url = r['href'].lower()
+            # Skip blocked domains
+            if any(blocked in url for blocked in blocked_domains):
+                continue
+            # Add quality score
+            quality_score = 0
+            if any(trusted in url for trusted in trusted_domains):
+                quality_score = 10
+            filtered_results.append((r, quality_score))
+
+        # Sort by quality, take top 3
+        filtered_results.sort(key=lambda x: x[1], reverse=True)
+        top_results = [r[0] for r in filtered_results[:3]]
+
+        if not top_results:
+            return None
+
+        # Build context from filtered results
         context = "Web search results:\n"
         sources = []
-        for r in results:
+        for r in top_results:
             context += f"- {r['body']}\n"
             sources.append(r['href'])
 
@@ -211,6 +255,15 @@ def display_thread():
     close_btn_rect.topright = (WIDTH - 15, 15)
     close_btn_hovered = False
 
+    # Load speaker button
+    speaker_btn_img = pygame.image.load(
+        os.path.join(ANIM_DIR, "speaker_button.png")
+    ).convert_alpha()
+    speaker_btn_img = pygame.transform.scale(speaker_btn_img, (50, 50))
+    speaker_btn_rect = speaker_btn_img.get_rect()
+    speaker_btn_rect.topleft = (20, 315)  # Above chat box (380 - 65)
+    speaker_btn_hovered = False
+
     font_large = pygame.font.SysFont("monospace", 20, bold=True)
     font_small = pygame.font.SysFont("monospace", 13, bold=True)
     chat_font  = pygame.font.SysFont("monospace", 20)
@@ -233,7 +286,7 @@ def display_thread():
 
     CHAT_BOX_Y     = 380
     CHAT_TEXT_X    = 20
-    CHAT_TEXT_Y    = CHAT_BOX_Y + 25
+    CHAT_TEXT_Y    = CHAT_BOX_Y + 20
     CHAT_MAX_WIDTH = 760
 
     def handle_tap(pos, widget_open):
@@ -337,13 +390,25 @@ def display_thread():
     state["display_ready"] = True
 
     while state["running"]:
+        # Check if we need to force deactivate text input
+        if state.get("text_input_deactivate", False):
+            text_input_active = False
+            text_input_buffer = ""
+            state["text_input_deactivate"] = False
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 state["running"] = False
 
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE and not text_input_active:
-                    state["running"] = False
+                if event.key == pygame.K_ESCAPE:
+                    if text_input_active:
+                        # Cancel typing mode
+                        text_input_active = False
+                        text_input_buffer = ""
+                    else:
+                        # Exit app
+                        state["running"] = False
                 elif text_input_active:
                     # Handle typing
                     if event.key == pygame.K_RETURN:
@@ -354,9 +419,6 @@ def display_thread():
                             text_input_active = False
                     elif event.key == pygame.K_BACKSPACE:
                         text_input_buffer = text_input_buffer[:-1]
-                    elif event.key == pygame.K_ESCAPE:
-                        text_input_active = False
-                        text_input_buffer = ""
                     elif len(text_input_buffer) < 100:  # Limit length
                         text_input_buffer += event.unicode
 
@@ -364,16 +426,24 @@ def display_thread():
                 # Check close button first
                 if close_btn_rect.collidepoint(event.pos):
                     state["running"] = False
+                # Check speaker button
+                elif speaker_btn_rect.collidepoint(event.pos):
+                    state["voice_input_triggered"] = True
                 # Check if chat box was clicked
                 elif event.pos[1] >= CHAT_BOX_Y:
                     text_input_active = True
                     text_input_buffer = ""
+                # Click outside chat box - deactivate
+                elif text_input_active:
+                    text_input_active = False
+                    text_input_buffer = ""
                 else:
                     widget_open = handle_tap(event.pos, widget_open)
 
-            # Handle mouse hover for close button
+            # Handle mouse hover for buttons
             if event.type == pygame.MOUSEMOTION:
                 close_btn_hovered = close_btn_rect.collidepoint(event.pos)
+                speaker_btn_hovered = speaker_btn_rect.collidepoint(event.pos)
 
             if event.type == pygame.FINGERDOWN:
                 tap_x = int(event.x * WIDTH)
@@ -381,6 +451,9 @@ def display_thread():
                 # Check close button
                 if close_btn_rect.collidepoint((tap_x, tap_y)):
                     state["running"] = False
+                # Check speaker button
+                elif speaker_btn_rect.collidepoint((tap_x, tap_y)):
+                    state["voice_input_triggered"] = True
                 # Check chat box
                 elif tap_y >= CHAT_BOX_Y:
                     text_input_active = True
@@ -415,6 +488,14 @@ def display_thread():
         else:
             screen.blit(close_btn_img, close_btn_rect)
 
+        # Draw speaker button
+        if speaker_btn_hovered:
+            scaled = pygame.transform.scale(speaker_btn_img, (55, 55))
+            rect = scaled.get_rect(center=speaker_btn_rect.center)
+            screen.blit(scaled, rect)
+        else:
+            screen.blit(speaker_btn_img, speaker_btn_rect)
+
         typewriter_counter += 1
         if typewriter_counter >= 1:
             typewriter_counter = 0
@@ -425,6 +506,7 @@ def display_thread():
         frame_index = (frame_index + 1) % len(frames)
         clock.tick(FPS)
 
+    pygame.mouse.set_visible(True)  # Restore cursor before quitting
     pygame.quit()
 
 # -------------------------
@@ -548,7 +630,7 @@ def chat(user_input):
         f"{config['system_prompt']} "
         f"The user's name is {memory.get('name', 'Meow-mi')}. "
         f"Location: {memory.get('location', 'Walnut Creek, CA')}. "
-        f"Current time: {current_time}. Today is {current_date}. "
+        f"IMPORTANT: The current time is {current_time} and today's date is {current_date}. Always use this exact date when asked about today's date. "
         f"Preferences: {json.dumps(memory.get('preferences', {}))}. "
         f"Keep responses short and simple. Never read URLs aloud. "
         f"When citing sources, just mention the site name not the full URL."
@@ -658,6 +740,7 @@ if __name__ == "__main__":
     print("  - Press Enter to speak")
     print("  - Type a message and press Enter to chat by text")
     print("  - Click the chat box in the GUI to type there")
+    print("  - Click the speaker button in the GUI for voice input")
     #print("  - Say 'Hey Pip' for wake word activation")
     print("  - Type 'quit' to exit")
 
@@ -665,35 +748,37 @@ if __name__ == "__main__":
         while state["running"]:
             state["animation"] = "idle"
 
-                # # Check for wake word trigger
-    # if state["wake_word_detected"]:
-    #     state["wake_word_detected"] = False
-    #     print("\n🎤 Wake word detected! Listening...")
-    #
-    #     audio_file = record_audio()
-    #     text = transcribe(audio_file)
-    #     print(f"Transcribed: '{text}'")
-    #     if text:
-    #         print(f"You said: {text}")
-    #         reply, display_reply = chat(text)
-    #         print(f"Pip: {reply}")
-    #         speak(reply, display_reply)
-    #     else:
-    #         state["animation"]     = "error"
-    #         state["chat_text"]     = "I couldn't hear anything, try again!"
-    #         state["display_chars"] = 38
-    #         time.sleep(2)
-    #         state["animation"]     = "idle"
-    #         state["chat_text"]     = ""
-    #         state["display_chars"] = 0
-    #     continue  # Skip to next iteration
+            # Check for voice input button trigger
+            if state["voice_input_triggered"]:
+                state["voice_input_triggered"] = False
+                print("\n🎤 Voice button pressed! Listening...")
 
-    # Poll for GUI input (non-blocking)
+                audio_file = record_audio()
+                text = transcribe(audio_file)
+                print(f"Transcribed: '{text}'")
+                # Ignore very short transcriptions (likely noise)
+                # Ignore very short transcriptions and common noise words
+                noise_words = ["you", "thank you", "thanks", ".", "...", " "]
+                if text and len(text) >= 5 and text.lower().strip() not in noise_words:
+                    print(f"You said: {text}")
+                    reply, display_reply = chat(text)
+                    print(f"Pip: {reply}")
+                    speak(reply, display_reply)
+                else:
+                    state["animation"]     = "error"
+                    state["chat_text"]     = "I couldn't hear anything, try again!"
+                    state["display_chars"] = 38
+                    time.sleep(2)
+                    state["animation"]     = "idle"
+                    state["chat_text"]     = ""
+                    state["display_chars"] = 0
+                continue
 
             # Poll for GUI input (non-blocking)
             if state["user_input"]:
                 user_input = state["user_input"]
                 state["user_input"] = None
+                state["text_input_deactivate"] = True
                 print(f"\nYou (GUI): {user_input}")
 
                 # Process the GUI input
@@ -717,7 +802,9 @@ if __name__ == "__main__":
                         audio_file = record_audio()
                         text = transcribe(audio_file)
                         print(f"Transcribed: '{text}'")
-                        if text:
+                        # Ignore very short transcriptions (likely noise)
+                        noise_words = ["you", "thank you", "thanks", ".", "...", " "]
+                        if text and len(text) >= 5 and text.lower().strip() not in noise_words:
                             print(f"You said: {text}")
                             reply, display_reply = chat(text)
                             print(f"Pip: {reply}")
