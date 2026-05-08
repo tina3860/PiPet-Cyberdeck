@@ -25,13 +25,21 @@ Device 2 — The Pet House A pet house-shaped cyberdeck running Raspberry Pi 5 8
 ## Tamgotchi (more, cuter, game-focused):
 
 Idle / blinking
+
 Happy / dancing
+
 Hungry / sad empty bowl
+
 Sleeping / ZZZs floating
+
 Playing / mini game sprites
+
 Eating / chomping
+
 Sick / dizzy stars
+
 Excited / docking animation when snapping into house
+
 Pooping 💩 (classic Tamagotchi!)
 
 ## House animations (fewer, simpler, AI state-focused):
@@ -45,6 +53,7 @@ Error / confused face
 # Resources
 ## What I bought - Amazon Storefront
 - House
+
 Raspberry Pi 5 Starter Kit
 https://www.pishop.us/product/raspberry-pi-5-budget-kit-8gb/
 
@@ -58,6 +67,7 @@ Mini Keyboard with Touchpad, Mini Bluetooth Keyboard
 https://www.amazon.com/dp/B0G3NZT2XN?ref=ppx_yo2ov_dt_b_fed_asin_title
 
 - Pet
+
 Raspberry Pi Zero 2W with Pre-soldered Headers
 https://www.amazon.com/dp/B0D7VKHJQL?ref=ppx_yo2ov_dt_b_fed_asin_title
 
@@ -73,8 +83,6 @@ https://www.amazon.com/dp/B0FPG8S6K6?ref=ppx_yo2ov_dt_b_fed_asin_title
 
 Tamagotchi cat seat/Display stand
 https://cults3d.com/en/3d-model/game/tamagotchi-seats
-
-
 
 ## Youtube Videos
 - Inspo for the pet: https://www.youtube.com/watch?v=Nwu2DruSuyI
